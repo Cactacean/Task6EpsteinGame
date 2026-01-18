@@ -1,78 +1,95 @@
+/*
+ * Name: YANG CHENGLIN
+ * Matric No: 24236290
+ * File: AIPlayer.java
+ */
 package ewnpuzzle;
 
 import java.util.*;
 
+/*
+ * AIPlayer is a concrete implementation of the Player class.
+ * It represents a heuristic-based AI that evaluates all possible moves
+ * and selects the move with the highest score.
+ */
 public class AIPlayer extends Player {
 
+    /*
+     * Constructs an AIPlayer with a predefined player name.
+     * The name is passed to the superclass Player.
+     */
     public AIPlayer() {
         super("AI Player");
     }
 
-    //@Override
-    public int choosePiece(int dice, GameState state) {
+    /*
+     * Chooses the best move based on the current dice roll and game state.
+     * The method evaluates all legal moves and selects the one
+     * with the highest heuristic score.
+     *
+     * @param dice  the value rolled by the dice, determining possible moves
+     * @param state the current GameState containing board and piece information
+     * @return a Move object representing the selected move, or null if no valid move exists
+     */
+    @Override
+    public Move chooseMove(int dice, GameState state) {
 
-        // Step 1: Which piece must move?
-        int piece = state.getPieceFromDice(dice);
-        if (piece == -1) return -1;
+        // Retrieve all pieces that can be moved given the dice value
+        List<Integer> candidates = state.getMovablePieces(dice);
+        if (candidates.isEmpty()) return null;
 
-        // Step 2: Get all legal moves
-        List<Integer> moves = state.getAvailableMoves(piece);
-        if (moves.isEmpty()) return -1;
-
-        // Step 3: Choose best move based on heuristic
-        int bestMove = moves.get(0);
+        int bestPiece = -1;
+        int bestDest = -1;
         int bestScore = Integer.MIN_VALUE;
 
-        for (int move : moves) {
-            int score = evaluateMove(piece, move, state);
-            if (score > bestScore) {
-                bestScore = score;
-                bestMove = move;
+        // Evaluate every possible (piece, destination) combination
+        for (int piece : candidates) {
+            List<Integer> moves = state.getAvailableMoves(piece);
+            for (int dest : moves) {
+
+                // Compute heuristic score for the current move
+                int score = evaluateMove(piece, dest, state);
+
+                // Update the best move if a higher score is found
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestPiece = piece;
+                    bestDest = dest;
+                }
             }
         }
 
-        return bestMove;
+        // Return null if no valid move was selected
+        if (bestPiece == -1 || bestDest == -1) return null;
+
+        // Encapsulate the selected move using the Move object
+        return new Move(bestPiece, bestDest);
     }
 
-    // ============================
-    //        HEURISTIC
-    // ============================
-    //
-    // Higher score = better move
-    //
-    // Heuristic idea:
-    // - Prefer moves that increase row+col
-    // - Strong bonus if this is the target piece
-    // - Strong bonus if move reaches 77
-    //
+    /**
+     * Evaluates a move using a heuristic scoring function.
+     * Higher scores indicate more desirable moves.
+     *
+     * @param piece the piece being moved
+     * @param dest  the destination position encoded as an integer
+     * @param state the current GameState
+     * @return an integer score representing the quality of the move
+     */
+    private int evaluateMove(int piece, int dest, GameState state) {
 
-    private int evaluateMove(int piece, int move, GameState state) {
+        // Decode destination into row and column
+        int r = dest / 10;
+        int c = dest % 10;
 
-        int r = move / 10;
-        int c = move % 10;
+        // Heuristic: positions closer to (0, 0) are preferred
+        int score = 100 - (r + c);
 
-        int score = r + c; // closer to (7,7) = higher
+        // Bonus if the move involves the target piece
+        if (piece == state.getTargetPiece()) score += 50;
 
-        // Bonus if this is the target piece
-        // (target piece index = targetPiece - 1)
-        // We infer target by checking goal condition impact
-        if (isTargetPiece(piece, state)) {
-            score += 20;
-        }
-
-        // Huge bonus if reaching goal
-        if (move == 77) {
-            score += 1000;
-        }
+        // Large bonus for reaching the winning position
+        if (dest == 0) score += 1000;
 
         return score;
-    }
-
-    // Helper to detect if piece is target piece
-    private boolean isTargetPiece(int piece, GameState state) {
-        // Target piece is the only one whose reaching 77 ends the game
-        int[] before = state.getPositions();
-        int index = piece - 1;
-        return before[index] != -1;
     }
 }
